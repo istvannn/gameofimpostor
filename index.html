@@ -3,113 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IMPOSTOR - Ultimate Connect</title>
+    <title>IMPOSTOR - Brute Force Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
-        body, html { margin: 0; padding: 0; background: #050508; color: #fff; font-family: 'Orbitron', sans-serif; height: 100%; overflow: hidden; }
-        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #111118; padding: 30px; border-radius: 20px; width: 300px; text-align: center; border: 2px solid #7c3aed; z-index: 100; box-shadow: 0 0 30px #7c3aed44; }
-        input { background: #1a1a24; border: 1px solid #333; border-radius: 8px; padding: 10px; width: 100%; color: white; font-family: 'Orbitron'; margin-bottom: 10px; box-sizing: border-box; text-align: center; font-size: 0.7rem; }
-        button { background: #7c3aed; border: none; border-radius: 8px; padding: 12px; width: 100%; color: white; font-family: 'Orbitron'; cursor: pointer; text-transform: uppercase; margin-bottom: 5px; }
-        #log { font-size: 0.6rem; color: #0f0; background: #000; padding: 8px; border-radius: 5px; text-align: left; height: 80px; overflow-y: auto; border: 1px solid #222; margin-top: 10px; font-family: monospace; }
-        #canvas { display: none; width: 100vw; height: 100vh; }
-        #startBtn { background: #22c55e; display: none; margin-top: 10px; }
+        body { margin: 0; background: #000; color: #0f0; font-family: monospace; overflow: hidden; }
+        #ui { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #111; padding: 20px; border: 2px solid #0f0; width: 300px; z-index: 10; text-align: center; }
+        input { width: 90%; padding: 10px; margin: 5px 0; background: #222; color: #0f0; border: 1px solid #0f0; }
+        button { width: 95%; padding: 10px; margin: 5px 0; cursor: pointer; background: #0f0; color: #000; font-weight: bold; border: none; }
+        #log { font-size: 10px; height: 100px; overflow-y: auto; text-align: left; border-top: 1px solid #333; margin-top: 10px; }
+        canvas { display: none; }
     </style>
 </head>
 <body>
 
-    <div id="menu">
-        <h2 style="margin:0 0 15px 0; color:#9d66ff;">IMPOSTOR</h2>
+    <div id="ui">
+        <h3>IMPOSTOR P2P</h3>
         <input type="text" id="nick" placeholder="Jméno" value="Hráč">
-        <button onclick="beHost()">1. VYTVOŘIT</button>
-        <input type="text" id="idDisp" readonly placeholder="ID pro kámoše..." onclick="copyID()">
-        <div style="margin: 10px 0; border-top: 1px solid #333;"></div>
-        <input type="text" id="joinId" placeholder="Vlož ID kámoše">
-        <button style="background:#2d2d3d;" onclick="beGuest()">2. PŘIPOJIT SE</button>
-        <div id="log">Status: Čekám...</div>
-        <button id="startBtn" onclick="gameStart()">3. START HRY</button>
+        <button onclick="copyId()">1. KOPÍROVAT MOJE ID</button>
+        <input type="text" id="myId" readonly>
+        <hr>
+        <input type="text" id="peerId" placeholder="Vlož ID kámoše">
+        <button onclick="connect()">2. PŘIPOJIT SE</button>
+        <button id="startBtn" onclick="gameStart()" style="display:none; background: #f0f;">3. START HRY</button>
+        <div id="log">Status: Startování...</div>
     </div>
 
     <canvas id="canvas"></canvas>
 
     <script>
-        const logger = (m) => { const l = document.getElementById('log'); l.innerHTML += `<div>> ${m}</div>`; l.scrollTop = l.scrollHeight; };
-        
-        // STUN servery jsou klíč k tomu, aby se data "protlačila" skrz firewall
+        const log = (m) => { const l = document.getElementById('log'); l.innerHTML += `> ${m}<br>`; l.scrollTop = l.scrollHeight; };
+
+        // Konfigurace s více STUN servery pro větší šanci na průchod firewallem
         const peer = new Peer(undefined, {
-            config: {'iceServers': [
-                {url:'stun:stun.l.google.com:19302'},
-                {url:'stun:stun1.l.google.com:19302'},
-                {url:'stun:stun2.l.google.com:19302'}
-            ]}
+            config: {
+                'iceServers': [
+                    { url: 'stun:stun.l.google.com:19302' },
+                    { url: 'stun:stun1.l.google.com:19302' },
+                    { url: 'stun:stun2.l.google.com:19302' },
+                    { url: 'stun:stun3.l.google.com:19302' }
+                ],
+                'sdpSemantics': 'unified-plan'
+            }
         });
 
-        let myConns = [];
+        let conns = [];
         let players = {};
-        const me = { x: 200, y: 200, n: "Hráč", r: "CREWMATE" };
+        const me = { x: 300, y: 300, n: "Hráč", r: "CREWMATE" };
 
-        peer.on('open', id => { 
-            document.getElementById('idDisp').value = id;
-            logger("Server OK. Moje ID načteno.");
+        peer.on('open', id => {
+            document.getElementById('myId').value = id;
+            log("Server připraven.");
         });
 
-        function copyID() {
-            const el = document.getElementById('idDisp');
-            el.select();
+        function copyId() {
+            const i = document.getElementById('myId');
+            i.select();
             document.execCommand('copy');
-            alert("ID zkopírováno!");
+            log("ID zkopírováno.");
         }
 
-        function beHost() {
+        function connect() {
+            const id = document.getElementById('peerId').value.trim();
             me.n = document.getElementById('nick').value;
-            logger("Hostování aktivní. Pošli ID.");
-        }
-
-        function beGuest() {
-            const tid = document.getElementById('joinId').value.trim();
-            me.n = document.getElementById('nick').value;
-            if(!tid) return alert("Vlož ID!");
-            logger("Navazuji spojení...");
-            const c = peer.connect(tid, { label: 'game-data', reliable: true });
-            setupConn(c);
+            log("Zkouším prorazit k " + id);
+            const c = peer.connect(id, { reliable: false }); // Vypnuto reliable pro rychlejší průchod
+            setup(c);
         }
 
         peer.on('connection', c => {
-            logger("Kámoš se připojuje...");
-            setupConn(c);
+            log("NĚKDO SE PŘIPOJIL!");
+            setup(c);
         });
 
-        function setupConn(c) {
+        function setup(c) {
             c.on('open', () => {
-                logger("!!! SPOJENO !!!");
-                if(!myConns.find(x => x.peer === c.peer)) myConns.push(c);
+                log("!!!! SPOJENO !!!!");
+                if(!conns.find(x => x.peer === c.peer)) conns.push(c);
                 document.getElementById('startBtn').style.display = 'block';
                 
-                // Okamžitá smyčka pro posílání dat
                 setInterval(() => {
-                    if(c.open) c.send({ t:'p', x:me.x, y:me.y, n:me.n });
-                }, 40);
+                    if(c.open) c.send({ x: me.x, y: me.y, n: me.nick });
+                }, 50);
             });
-
             c.on('data', d => {
-                if(d.t === 'p') players[c.peer] = d;
-                if(d.t === 's') { me.r = d.r; run(); }
+                if(d.r) { me.r = d.r; run(); }
+                else { players[c.peer] = d; }
             });
-
-            c.on('close', () => logger("Spojení ztraceno."));
         }
 
         function gameStart() {
-            const imp = Math.floor(Math.random() * (myConns.length + 1));
-            myConns.forEach((c, i) => {
-                c.send({ t:'s', r: (i === imp ? 'IMPOSTOR' : 'CREWMATE') });
+            const imp = Math.floor(Math.random() * (conns.length + 1));
+            conns.forEach((c, i) => {
+                c.send({ r: (i === imp ? 'IMPOSTOR' : 'CREWMATE') });
             });
-            me.r = (imp === myConns.length ? 'IMPOSTOR' : 'CREWMATE');
+            me.r = (imp === conns.length ? 'IMPOSTOR' : 'CREWMATE');
             run();
         }
 
         function run() {
-            document.getElementById('menu').style.display = 'none';
+            document.getElementById('ui').style.display = 'none';
             const cvs = document.getElementById('canvas');
             cvs.style.display = 'block';
             cvs.width = window.innerWidth;
@@ -123,15 +115,14 @@
 
         function loop() {
             const ctx = document.getElementById('canvas').getContext('2d');
-            ctx.fillStyle = '#050508';
+            ctx.fillStyle = '#000';
             ctx.fillRect(0,0,innerWidth,innerHeight);
 
             if(keys['w']) me.y -= 5; if(keys['s']) me.y += 5;
             if(keys['a']) me.x -= 5; if(keys['d']) me.x += 5;
 
             for(let id in players) {
-                const p = players[id];
-                draw(ctx, p.x, p.y, "#555", p.n);
+                draw(ctx, players[id].x, players[id].y, "#555", players[id].n);
             }
             draw(ctx, me.x, me.y, me.r === 'IMPOSTOR' ? "#f00" : "#0f0", me.n + " (TY)");
             requestAnimationFrame(loop);
@@ -140,8 +131,7 @@
         function draw(ctx, x, y, c, n) {
             ctx.fillStyle = c;
             ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = "#fff"; ctx.font = "10px Orbitron"; ctx.textAlign = "center";
-            ctx.fillText(n, x, y-25);
+            ctx.fillStyle = "#fff"; ctx.fillText(n || "Hráč", x-10, y-20);
         }
     </script>
 </body>
