@@ -7,49 +7,29 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-        
         body, html { margin: 0; padding: 0; background-color: #0d0d12; color: #ffffff; font-family: 'Orbitron', sans-serif; height: 100%; overflow: hidden; }
 
-        /* --- MENU DESIGN --- */
+        /* MENU DESIGN */
         #menu-screen {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: #16161e; padding: 40px; border-radius: 32px; width: 380px;
             text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.8);
             border: 1px solid #252533; z-index: 100;
         }
-
         h1 { font-weight: 900; font-size: 2.8rem; color: #9d66ff; margin: 0; }
         .subtitle { font-size: 0.65rem; color: #565666; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 35px; display: block; }
-        
-        input {
-            background: #1f1f29; border: none; border-radius: 16px; padding: 18px;
-            width: 100%; color: white; font-family: 'Orbitron', sans-serif;
-            font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; text-align: center; outline: none;
-        }
-
-        .btn-create {
-            background: linear-gradient(90deg, #7c3aed, #6366f1); color: white;
-            font-weight: 700; padding: 18px; border-radius: 16px; width: 100%;
-            cursor: pointer; border: none; margin-bottom: 25px; text-transform: uppercase;
-        }
-
-        .btn-join {
-            background: #252533; color: #a1a1aa; padding: 18px; border-radius: 16px;
-            width: 100%; cursor: pointer; border: none; text-transform: uppercase;
-        }
-
+        input { background: #1f1f29; border: none; border-radius: 16px; padding: 18px; width: 100%; color: white; font-family: 'Orbitron', sans-serif; font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; text-align: center; outline: none; }
+        .btn-create { background: linear-gradient(90deg, #7c3aed, #6366f1); color: white; font-weight: 700; padding: 18px; border-radius: 16px; width: 100%; cursor: pointer; border: none; margin-bottom: 25px; text-transform: uppercase; }
+        .btn-join { background: #252533; color: #a1a1aa; padding: 18px; border-radius: 16px; width: 100%; cursor: pointer; border: none; text-transform: uppercase; }
         .divider { color: #333; font-size: 0.6rem; margin: 15px 0; display: flex; align-items: center; }
         .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #222; margin: 0 15px; }
 
-        /* --- GAME UI --- */
-        #game-ui {
-            position: absolute; top: 20px; right: 20px; text-align: right; pointer-events: none;
-        }
+        /* GAME UI */
+        #game-ui { position: absolute; top: 20px; right: 20px; text-align: right; z-index: 50; display: none; }
         .role-tag { font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
-        .impostor { color: #ff4444; text-shadow: 0 0 10px #ff0000; }
-        .crewmate { color: #44ff44; text-shadow: 0 0 10px #00ff00; }
-
-        #gameCanvas { display: none; background: #0a0a0f; }
+        .impostor { color: #ff4444; }
+        .crewmate { color: #44ff44; }
+        #gameCanvas { display: none; background: #0a0a0f; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
     </style>
 </head>
 <body>
@@ -57,28 +37,21 @@
     <div id="menu-screen">
         <h1>IMPOSTOR</h1>
         <span class="subtitle">Multiplayer Edition</span>
-
         <input type="text" id="nickInput" placeholder="přezdívka" value="panco">
-        
         <button class="btn-create" onclick="hostGame()">Vytvořit novou místnost</button>
-
         <div class="divider">NEBO</div>
-
         <input type="text" id="roomIdInput" placeholder="Vlož ID místnosti">
         <button class="btn-join" onclick="joinGame()">Připojit se ke kámošům</button>
-        
         <p id="status-msg" style="color: #444; font-size: 0.7rem; margin-top: 15px;">Server: Čekání...</p>
     </div>
 
     <div id="game-ui">
         <div id="role-display" class="role-tag"></div>
-        <div id="player-list" style="font-size: 0.8rem; color: #aaa;"></div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- PEERJS KONFIGURACE ---
         const peer = new Peer(undefined, { host: '0.peerjs.com', port: 443, secure: true });
         let conn;
         let players = {};
@@ -87,21 +60,25 @@
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const me = { x: Math.random() * 500 + 100, y: Math.random() * 500 + 100, nick: "panco", role: myRole };
+        const me = { x: 400, y: 300, nick: "panco", role: myRole };
+
+        // BEZPEČNÁ AKTUALIZACE STATUSU
+        function updateStatus(text) {
+            const el = document.getElementById('status-msg');
+            if (el) el.innerText = text;
+        }
 
         peer.on('open', (id) => {
             myId = id;
-            document.getElementById('status-msg').innerText = "Server: Připraven.";
+            updateStatus("Server: Připraven.");
         });
 
         function hostGame() {
             if (!myId) return;
-            const input = document.getElementById('roomIdInput');
-            input.value = myId;
-            input.select();
-            document.getElementById('status-msg').innerText = "ID vytvořeno. Pošli ho kámošovi!";
+            document.getElementById('roomIdInput').value = myId;
+            updateStatus("ID vytvořeno! Pošli ho kámošovi.");
             me.nick = document.getElementById('nickInput').value;
-            showGame();
+            startCanvas();
         }
 
         function joinGame() {
@@ -110,76 +87,71 @@
             me.nick = document.getElementById('nickInput').value;
             conn = peer.connect(targetId);
             setupConnection(conn);
-            showGame();
+            startCanvas();
         }
 
-        peer.on('connection', (c) => {
-            conn = c;
+        peer.on('connection', (incoming) => {
+            conn = incoming;
             setupConnection(conn);
-            showGame();
+            startCanvas();
         });
 
         function setupConnection(c) {
             c.on('open', () => {
                 document.getElementById('menu-screen').style.display = 'none';
+                document.getElementById('game-ui').style.display = 'block';
                 setInterval(() => { if(c.open) c.send(me); }, 50);
             });
             c.on('data', (data) => { players[c.peer] = data; });
         }
 
-        function showGame() {
+        function startCanvas() {
             canvas.style.display = 'block';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            document.getElementById('role-display').innerText = me.role;
-            document.getElementById('role-display').className = "role-tag " + me.role.toLowerCase();
+            const roleEl = document.getElementById('role-display');
+            if(roleEl) {
+                roleEl.innerText = me.role;
+                roleEl.className = "role-tag " + me.role.toLowerCase();
+            }
             animate();
         }
 
-        // --- OVLÁDÁNÍ ---
         const keys = {};
         window.addEventListener('keydown', (e) => { 
             keys[e.key.toLowerCase()] = true; 
-            if(['w','a','s','d'].includes(e.key.toLowerCase())) document.getElementById('menu-screen').style.display = 'none';
+            if(['w','a','s','d'].includes(e.key.toLowerCase())) {
+                const menu = document.getElementById('menu-screen');
+                if(menu) menu.style.display = 'none';
+            }
         });
         window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
-
-        function move() {
-            const s = 6;
-            if (keys['w']) me.y -= s;
-            if (keys['s']) me.y += s;
-            if (keys['a']) me.x -= s;
-            if (keys['d']) me.x += s;
-        }
 
         function animate() {
             ctx.fillStyle = '#0d0d12';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            move();
+            const s = 6;
+            if (keys['w']) me.y -= s;
+            if (keys['s']) me.y += s;
+            if (keys['a']) me.x -= s;
+            if (keys['d']) me.x += s;
 
-            // Vykreslit ostatní hráče
             for (let id in players) {
                 const p = players[id];
                 drawPlayer(p.x, p.y, p.role === "IMPOSTOR" ? "#ff4444" : "#44ff44", p.nick);
             }
-
-            // Vykreslit sebe
             drawPlayer(me.x, me.y, me.role === "IMPOSTOR" ? "#ff4444" : "#44ff44", me.nick + " (TY)");
-
             requestAnimationFrame(animate);
         }
 
         function drawPlayer(x, y, color, name) {
-            // Postavička
             ctx.fillStyle = color;
             ctx.beginPath();
             ctx.roundRect(x - 20, y - 25, 40, 50, 10);
             ctx.fill();
-            // Sklo helmy
             ctx.fillStyle = "#aaddff";
             ctx.fillRect(x - 5, y - 15, 20, 15);
-            // Jméno
             ctx.fillStyle = "white";
             ctx.font = "12px Orbitron";
             ctx.textAlign = "center";
