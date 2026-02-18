@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IMPOSTOR - Final Connection Fix</title>
+    <title>IMPOSTOR - Force Sync Edition</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
@@ -17,18 +17,15 @@
         }
         h1 { font-weight: 900; font-size: 2.8rem; color: #9d66ff; margin: 0; }
         .subtitle { font-size: 0.65rem; color: #565666; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 35px; display: block; }
-        
-        input { background: #1f1f29; border: none; border-radius: 16px; padding: 18px; width: 100%; color: white; font-family: 'Orbitron'; font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; text-align: center; outline: none; }
-        
-        .btn { border: none; border-radius: 16px; padding: 18px; width: 100%; cursor: pointer; text-transform: uppercase; font-family: 'Orbitron'; font-weight: 700; margin-bottom: 15px; transition: 0.2s; }
+        input { background: #1f1f29; border: none; border-radius: 16px; padding: 18px; width: 100%; color: white; font-family: 'Orbitron'; font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; text-align: center; outline: none; border: 1px solid transparent; }
+        input:focus { border-color: #7c3aed; }
+        .btn { border: none; border-radius: 16px; padding: 18px; width: 100%; cursor: pointer; text-transform: uppercase; font-family: 'Orbitron'; font-weight: 700; margin-bottom: 15px; }
         .btn-create { background: linear-gradient(90deg, #7c3aed, #6366f1); color: white; }
         .btn-join { background: #252533; color: #a1a1aa; }
         .btn-start { background: #22c55e; color: white; display: none; margin-top: 20px; }
-        .btn:hover { transform: scale(1.02); opacity: 0.9; }
-        
         #player-list { margin-top: 20px; font-size: 0.8rem; color: #9d66ff; text-align: left; background: #1f1f29; padding: 15px; border-radius: 16px; display: none; border: 1px solid #252533; }
         #gameCanvas { display: none; background: #0a0a0f; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #role-display { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; font-weight: bold; z-index: 50; }
+        #role-display { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; font-weight: bold; z-index: 50; display: none; }
     </style>
 </head>
 <body>
@@ -36,33 +33,28 @@
     <div id="menu-screen">
         <h1>IMPOSTOR</h1>
         <span class="subtitle">Multiplayer Edition</span>
-        
         <input type="text" id="nickInput" placeholder="Tvoje přezdívka" value="Hráč">
         <button id="hostBtn" class="btn btn-create" onclick="hostGame()">Vytvořit místnost</button>
-        <div style="margin: 5px 0; font-size: 0.6rem; color: #333;">NEBO</div>
-        <input type="text" id="roomIdInput" placeholder="Vlož ID místnosti">
+        <input type="text" id="roomIdInput" placeholder="ID místnosti">
         <button id="joinBtn" class="btn btn-join" onclick="joinGame()">Připojit se</button>
-
         <div id="player-list"></div>
         <button id="startBtn" class="btn btn-start" onclick="broadcastStart()">START HRY</button>
-        <p id="status-msg" style="color: #565666; font-size: 0.7rem; margin-top: 15px; letter-spacing: 1px;">STATUS: ČEKÁNÍ NA SERVER...</p>
+        <p id="status-msg" style="color: #444; font-size: 0.7rem; margin-top: 15px;">Server: Čekání...</p>
     </div>
 
     <div id="role-display"></div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // Konfigurace s Google STUN servery pro lepší prostupnost sítí
+        // Použití garantovaných Google serverů pro obejití firewallů
         const peer = new Peer(undefined, {
-            config: {'iceServers': [
-                { url: 'stun:stun.l.google.com:19302' },
-                { url: 'stun:stun1.l.google.com:19302' }
-            ]}
+            config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }, { url: 'stun:stun1.l.google.com:19302' }]},
+            debug: 3
         });
 
         let conns = {}; 
         let players = {};
-        let myId;
+        let myId, activeConn;
         let isHost = false;
 
         const canvas = document.getElementById('gameCanvas');
@@ -71,121 +63,85 @@
 
         peer.on('open', id => { 
             myId = id; 
-            document.getElementById('status-msg').innerText = "STATUS: PŘIPRAVEN";
-            console.log("Moje ID:", id);
-        });
-
-        peer.on('error', err => {
-            console.error("PeerJS Chyba:", err);
-            document.getElementById('status-msg').innerText = "CHYBA: " + err.type;
+            document.getElementById('status-msg').innerText = "Server: PŘIPRAVEN";
         });
 
         function hostGame() {
-            const n = document.getElementById('nickInput').value;
-            if(!n) return alert("Napiš jméno!");
-            me.nick = n;
+            me.nick = document.getElementById('nickInput').value || "Host";
             isHost = true;
             document.getElementById('roomIdInput').value = myId;
             document.getElementById('player-list').style.display = 'block';
             document.getElementById('startBtn').style.display = 'block';
-            document.getElementById('status-msg').innerText = "MÍSTNOST VYTVOŘENA. ČEKEJ...";
             updateLobbyUI();
         }
 
         function joinGame() {
             const targetId = document.getElementById('roomIdInput').value.trim();
-            const n = document.getElementById('nickInput').value;
-            if(!targetId || !n) return alert("Zadej ID a jméno!");
-            me.nick = n;
-            document.getElementById('status-msg').innerText = "PŘIPOJOVÁNÍ...";
-            
-            const conn = peer.connect(targetId, { reliable: true });
-            setupConnection(conn);
+            me.nick = document.getElementById('nickInput').value || "Host";
+            document.getElementById('status-msg').innerText = "SPOJOVÁNÍ...";
+            activeConn = peer.connect(targetId, { reliable: true });
+            setupConnection(activeConn);
         }
 
-        // Hostitel přijímá spojení
         peer.on('connection', conn => {
             setupConnection(conn);
         });
 
         function setupConnection(conn) {
             conns[conn.peer] = conn;
-
             conn.on('open', () => {
-                document.getElementById('status-msg').innerText = "STATUS: PŘIPOJENO!";
+                document.getElementById('status-msg').innerText = "PŘIPOJENO!";
                 document.getElementById('player-list').style.display = 'block';
                 
-                // Okamžitý první balíček dat
-                conn.send({ type: 'lobby-sync', nick: me.nick });
-
-                // Herní smyčka posílání dat
+                // Opakovaná synchronizace pro jistotu
                 setInterval(() => {
                     if(conn.open) {
-                        conn.send({ 
-                            type: 'game-sync', 
-                            x: me.x, 
-                            y: me.y, 
-                            nick: me.nick, 
-                            role: me.role 
-                        });
+                        conn.send({ type: 'sync', x: me.x, y: me.y, nick: me.nick, role: me.role });
                     }
-                }, 50);
+                }, 100);
             });
 
             conn.on('data', data => {
-                if(data.type === 'lobby-sync') {
-                    players[conn.peer] = { nick: data.nick };
+                if(data.type === 'sync') {
+                    players[conn.peer] = data;
                     updateLobbyUI();
                 }
-                if(data.type === 'game-sync') {
-                    players[conn.peer] = { ...players[conn.peer], ...data };
-                }
-                if(data.type === 'start-command') {
+                if(data.type === 'start') {
                     me.role = data.roles[myId];
                     startGameUI();
                 }
-            });
-
-            conn.on('close', () => {
-                delete players[conn.peer];
-                updateLobbyUI();
             });
         }
 
         function updateLobbyUI() {
             const list = document.getElementById('player-list');
-            let html = `<div style="color: #565666; margin-bottom: 10px; font-size: 0.6rem;">HRÁČI V LOBBY:</div>`;
-            html += `<div style="margin-bottom: 5px;">• ${me.nick} <span style="color: #565666;">(TY)</span></div>`;
+            let html = `<strong>V LOBBY:</strong><br>• ${me.nick} (TY)<br>`;
             for(let id in players) {
-                html += `<div style="margin-bottom: 5px;">• ${players[id].nick || "Připojování..."}</div>`;
+                html += `• ${players[id].nick || "Hráč..."}<br>`;
             }
             list.innerHTML = html;
         }
 
         function broadcastStart() {
-            if(!isHost) return;
             const roles = {};
             const ids = [myId, ...Object.keys(conns)];
             const impId = ids[Math.floor(Math.random() * ids.length)];
-            
             ids.forEach(id => roles[id] = (id === impId ? "IMPOSTOR" : "CREWMATE"));
             
             me.role = roles[myId];
-            for(let id in conns) {
-                conns[id].send({ type: 'start-command', roles: roles });
-            }
+            for(let id in conns) { conns[id].send({ type: 'start', roles: roles }); }
             startGameUI();
         }
 
         function startGameUI() {
             document.getElementById('menu-screen').style.display = 'none';
+            document.getElementById('role-display').style.display = 'block';
+            document.getElementById('role-display').innerText = me.role;
+            document.getElementById('role-display').style.color = me.role === "IMPOSTOR" ? "#ff4444" : "#44ff44";
             canvas.style.display = 'block';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            const rd = document.getElementById('role-display');
-            rd.innerText = me.role;
-            rd.style.color = me.role === "IMPOSTOR" ? "#ff4444" : "#44ff44";
-            requestAnimationFrame(animate);
+            animate();
         }
 
         const keys = {};
@@ -193,12 +149,11 @@
         window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
         function animate() {
-            ctx.fillStyle = '#0d0d12';
+            ctx.fillStyle = '#0a0a0f';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            const s = 5;
-            if(keys['w']) me.y -= s; if(keys['s']) me.y += s;
-            if(keys['a']) me.x -= s; if(keys['d']) me.x += s;
+            if(keys['w']) me.y -= 5; if(keys['s']) me.y += 5;
+            if(keys['a']) me.x -= 5; if(keys['d']) me.x += 5;
 
             for(let id in players) {
                 const p = players[id];
@@ -215,8 +170,6 @@
             ctx.fillStyle = "white"; ctx.font = "bold 12px Orbitron"; ctx.textAlign = "center";
             ctx.fillText(name, x, y-35);
         }
-
-        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     </script>
 </body>
 </html>
