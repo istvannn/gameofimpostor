@@ -1,229 +1,189 @@
-<!DOCTYPE html>
+<head src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"><head>
+<!DOCTYPE html>>
 <html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IMPOSTOR ULTIMATE ONLINE</title>
+    <title>Game of Impostor - Multiplayer</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #050508; color: #e2e8f0; font-family: 'Inter', sans-serif; overflow-x: hidden; }
-        .glass { background: rgba(15, 15, 25, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; }
-        .neon-indigo { box-shadow: 0 0 20px rgba(79, 70, 229, 0.3); border: 1px solid rgba(99, 102, 241, 0.5); }
-        .neon-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); border: 1px solid rgba(239, 68, 68, 0.5); }
-        .accent-btn { background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%); transition: 0.3s; }
-        .accent-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(99, 102, 241, 0.4); }
+        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; }
+        canvas { display: block; background: #222; border: 2px solid #444; margin: 10px auto; border-radius: 8px; }
+        .ui-panel { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.85); padding: 20px; border-radius: 12px; z-index: 10; border: 1px solid #333; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen p-4">
+<body>
 
-    <div id="screen-menu" class="glass p-8 w-full max-w-md text-center shadow-2xl">
-        <h1 class="text-5xl font-black mb-2 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-500">IMPOSTOR</h1>
-        <p class="text-[10px] uppercase tracking-[0.4em] text-gray-500 mb-8">Multiplayer Edition</p>
+    <div class="ui-panel">
+        <h1 class="text-2xl font-bold mb-2 text-red-500 tracking-wider">GAME OF IMPOSTOR</h1>
         
-        <div class="space-y-4">
-            <input type="text" id="input-name" placeholder="Tvoje jméno" class="w-full bg-white/5 p-4 rounded-2xl border border-white/10 outline-none focus:border-indigo-500">
-            <button onclick="createRoom()" class="w-full accent-btn py-4 rounded-2xl font-bold uppercase tracking-widest text-sm">Vytvořit novou místnost</button>
-            <div class="flex items-center gap-4 py-2">
-                <div class="h-[1px] bg-white/10 flex-grow"></div>
-                <span class="text-xs text-gray-600 font-bold">NEBO</span>
-                <div class="h-[1px] bg-white/10 flex-grow"></div>
+        <div id="setup-section" class="space-y-3">
+            <p class="text-sm text-gray-300">Tvoje ID místnosti (pošli kamarádovi):</p>
+            <div id="my-id" class="font-mono text-lg text-yellow-400 bg-black p-2 rounded border border-yellow-900/50 text-center">Načítám kód...</div>
+            
+            <hr class="border-gray-700 my-4">
+            
+            <p class="text-sm text-gray-300">Připojit se ke kamarádovi:</p>
+            <div class="flex gap-2">
+                <input type="text" id="join-id" placeholder="Vlož ID" class="bg-gray-800 border border-gray-600 px-3 py-2 rounded text-white w-40 focus:outline-none focus:border-blue-500">
+                <button onclick="connectToPeer()" class="bg-blue-600 hover:bg-blue-700 transition-colors px-4 py-2 rounded font-bold">HRÁT</button>
             </div>
-            <input type="text" id="input-room-id" placeholder="Vlož ID místnosti" class="w-full bg-white/5 p-4 rounded-2xl border border-white/10 outline-none">
-            <button onclick="joinRoom()" class="w-full bg-white/5 hover:bg-white/10 py-4 rounded-2xl font-bold uppercase tracking-widest text-sm border border-white/10">Připojit se ke kámošům</button>
         </div>
+
+        <p id="status" class="mt-4 text-xs text-gray-500 uppercase font-semibold">Stav: Připojování k serveru...</p>
     </div>
 
-    <div id="screen-lobby" class="glass p-8 w-full max-w-md hidden">
-        <div class="text-center mb-6">
-            <span class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">ID tvé místnosti:</span>
-            <div id="display-room-id" class="text-xl font-mono font-bold text-indigo-400 mt-1 cursor-pointer" onclick="copyId()">---</div>
-            <p class="text-[9px] text-gray-600 mt-1">(Klikni pro zkopírování)</p>
-        </div>
-
-        <div class="space-y-6">
-            <div class="bg-black/20 p-4 rounded-2xl border border-white/5">
-                <h3 class="text-xs font-bold text-gray-500 uppercase mb-3 tracking-widest">Hráči v lobby:</h3>
-                <ul id="list-players" class="space-y-2 font-medium text-indigo-100"></ul>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="text-[10px] text-gray-500 uppercase font-bold mb-1 block">Kategorie</label>
-                    <select id="select-category" class="w-full bg-white/5 p-3 rounded-xl border border-white/10 outline-none">
-                        <option value="jídlo">🍕 Jídlo</option>
-                        <option value="osobnosti">🌟 Osobnosti</option>
-                        <option value="škola">📚 Škola</option>
-                        <option value="příroda">🌲 Příroda</option>
-                        <option value="značky">🏷️ Značky</option>
-                        <option value="sport">⚽ Sport</option>
-                        <option value="spicy">🌶️ Spicy</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-[10px] text-gray-500 uppercase font-bold mb-1 block">Impostoři</label>
-                    <input type="number" id="input-imp-count" value="1" min="1" class="w-full bg-white/5 p-3 rounded-xl border border-white/10 outline-none">
-                </div>
-            </div>
-            <button onclick="startServerGame()" class="w-full accent-btn py-4 rounded-2xl font-bold uppercase tracking-widest">Rozdat karty všem</button>
-        </div>
-    </div>
-
-    <div id="screen-game" class="glass p-8 w-full max-w-md hidden text-center">
-        <div id="box-role" class="p-10 rounded-[2.5rem] mb-8 transition-all duration-700">
-            <h3 id="txt-role-label" class="text-xs font-bold uppercase tracking-[0.3em] mb-6">---</h3>
-            <p id="txt-main-word" class="text-5xl font-black tracking-tighter">---</p>
-            <div class="h-[1px] bg-white/10 my-8"></div>
-            <p id="txt-hint" class="text-sm font-medium opacity-60 px-4"></p>
-        </div>
-        <p class="text-xs text-gray-500 leading-relaxed">
-            Teď se všichni dívejte na sebe, ne na monitory.<br>
-            Diskutujte a najděte lháře.
-        </p>
-        <div id="host-reveal-controls" class="hidden mt-8">
-            <button onclick="serverReveal()" class="w-full bg-red-600/20 hover:bg-red-600/40 text-red-500 border border-red-500/50 py-4 rounded-2xl font-bold uppercase tracking-widest text-xs">Ukončit kolo a odhalit</button>
-        </div>
-    </div>
+    <canvas id="gameCanvas"></canvas>
 
     <script>
-        const db = {
-            "jídlo": [{s: "Svíčková", h: "Tradiční oběd"}, {s: "Sushi", h: "Mořská řasa"}, {s: "Kebab", h: "Noční hlad"}, {s: "Pizza", h: "Kulatý itálie"}],
-            "osobnosti": [{s: "Gott", h: "Zpěvák"}, {s: "Jágr", h: "Hokejka"}, {s: "Babiš", h: "Čapí hnízdo"}, {s: "Elon Musk", h: "Rakety"}],
-            "škola": [{s: "Tabule", h: "Křída"}, {s: "Tahák", h: "Podvod"}, {s: "Jídelna", h: "UHO omáčka"}, {s: "Tělocvik", h: "Dres"}],
-            "příroda": [{s: "Dub", h: "Žalud"}, {s: "Vlk", h: "Smečka"}, {s: "Hřib", h: "Smaženice"}, {s: "Blesk", h: "Bouřka"}],
-            "značky": [{s: "Nike", h: "Fajfka"}, {s: "Apple", h: "Ovoce"}, {s: "BMW", h: "Auto"}, {s: "Gucci", h: "Drahota"}],
-            "sport": [{s: "Hokej", h: "Led"}, {s: "Tenis", h: "Síť"}, {s: "Fotbal", h: "Trávník"}, {s: "Golf", h: "Jamka"}],
-            "spicy": [{s: "Pouta", h: "Zápěstí"}, {s: "Postel", h: "Vrzání"}, {s: "Bičík", h: "BDSM"}, {s: "Vibrátor", h: "Baterky"}]
+        // --- SÍŤOVÉ NASTAVENÍ (FIX PRO VERCEL/HTTPS) ---
+        const peer = new Peer(undefined, {
+            host: '0.peerjs.com',
+            port: 443,
+            secure: true,
+            debug: 3 // Vypisuje vše důležité do konzole (F12)
+        });
+
+        let conn;
+        let players = {};
+        let myId;
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            canvas.width = window.innerWidth - 20;
+            canvas.height = window.innerHeight - 20;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Můj lokální hráč (Impostor)
+        const me = {
+            x: Math.random() * (canvas.width - 50) + 25,
+            y: Math.random() * (canvas.height - 50) + 25,
+            color: '#ef4444', // Červená
+            size: 20
         };
 
-        let peer, myName, isHost = false, myId, connections = [], players = [];
-        let currentWord = "", currentImps = [];
+        // --- PEERJS LOGIKA ---
 
-        function createRoom() {
-            myName = document.getElementById('input-name').value;
-            if(!myName) return alert("Zadej jméno!");
-            isHost = true;
-            peer = new Peer();
-            peer.on('open', id => {
-                myId = id;
-                document.getElementById('display-room-id').innerText = id;
-                document.getElementById('screen-menu').classList.add('hidden');
-                document.getElementById('screen-lobby').classList.remove('hidden');
-                players.push({name: myName, id: peer.id});
-                updateLobby();
-            });
-            peer.on('connection', conn => {
-                conn.on('open', () => {
-                    connections.push(conn);
-                    conn.on('data', data => handleData(data, conn));
-                });
-            });
-        }
+        // 1. Získání vlastního ID od serveru
+        peer.on('open', (id) => {
+            myId = id;
+            document.getElementById('my-id').innerText = id;
+            document.getElementById('status').innerText = "Stav: Online";
+            players[id] = me;
+        });
 
-        function joinRoom() {
-            myName = document.getElementById('input-name').value;
-            let roomId = document.getElementById('input-room-id').value;
-            if(!myName || !roomId) return alert("Zadej jméno a ID!");
-            peer = new Peer();
-            peer.on('open', () => {
-                let conn = peer.connect(roomId);
-                conn.on('open', () => {
-                    conn.send({type: 'JOIN', name: myName});
-                    document.getElementById('screen-menu').innerHTML = "<div class='p-10 text-center animate-pulse text-indigo-400 font-bold uppercase tracking-widest'>Čekání na hostitele...</div>";
-                });
-                conn.on('data', data => handleData(data));
-            });
-        }
+        // 2. Hostitel: Někdo se připojil ke mně
+        peer.on('connection', (connection) => {
+            conn = connection;
+            setupConnection();
+            document.getElementById('status').innerText = "Stav: Hráč připojen";
+        });
 
-        function handleData(data, conn) {
-            if(data.type === 'JOIN' && isHost) {
-                players.push({name: data.name, conn: conn});
-                updateLobby();
-                broadcast({type: 'LIST', list: players.map(p => p.name)});
-            }
-            if(data.type === 'LIST') {
-                // Klient může vidět seznam hráčů (volitelné)
-            }
-            if(data.type === 'START') {
-                showGameCard(data.role, data.word, data.hint);
-            }
-            if(data.type === 'REVEAL') {
-                alert(`KONEC KOLA!\n\nImpostoři byli: ${data.imps}\nSlovo bylo: ${data.word}`);
-                location.reload();
-            }
-        }
-
-        function updateLobby() {
-            const list = document.getElementById('list-players');
-            list.innerHTML = players.map(p => `<li class="flex items-center gap-2 bg-white/5 p-3 rounded-xl border border-white/5 animate-fade-in text-sm"><span class="w-2 h-2 rounded-full bg-green-500"></span> ${p.name}</li>`).join('');
-        }
-
-        function broadcast(data) {
-            connections.forEach(c => c.send(data));
-        }
-
-        function startServerGame() {
-            let cat = document.getElementById('select-category').value;
-            let impCount = parseInt(document.getElementById('input-imp-count').value);
-            if(players.length < 3) return alert("Potřebuješ aspoň 3 hráče!");
+        // 3. Klient: Já se připojuji k někomu
+        function connectToPeer() {
+            const targetId = document.getElementById('join-id').value.trim();
+            if (!targetId) return;
             
-            let gameData = db[cat][Math.floor(Math.random() * db[cat].length)];
-            currentWord = gameData.s;
-            
-            let shuffled = [...players].sort(() => Math.random() - 0.5);
-            let imps = shuffled.slice(0, impCount).map(p => p.name);
-            currentImps = imps;
-
-            players.forEach(p => {
-                let role = imps.includes(p.name) ? 'IMP' : 'CIV';
-                let pData = {
-                    type: 'START',
-                    role: role,
-                    word: role === 'IMP' ? '???' : gameData.s,
-                    hint: gameData.h
-                };
-                if(p.name === myName) showGameCard(role, pData.word, pData.hint);
-                else p.conn.send(pData);
-            });
-
-            document.getElementById('host-reveal-controls').classList.remove('hidden');
+            document.getElementById('status').innerText = "Stav: Vyhledávám...";
+            conn = peer.connect(targetId);
+            setupConnection();
         }
 
-        function showGameCard(role, word, hint) {
-            document.getElementById('screen-menu').classList.add('hidden');
-            document.getElementById('screen-lobby').classList.add('hidden');
-            document.getElementById('screen-game').classList.remove('hidden');
-            
-            const box = document.getElementById('box-role');
-            const label = document.getElementById('txt-role-label');
-            const wordTxt = document.getElementById('txt-main-word');
-            const hintTxt = document.getElementById('txt-hint');
+        // 4. Společné nastavení přenosu dat
+        function setupConnection() {
+            conn.on('open', () => {
+                document.getElementById('status').innerText = "Stav: Spojeno";
+                sendPosition(); // Pošleme počáteční pozici
+            });
 
-            if(role === 'IMP') {
-                box.className = "p-10 rounded-[2.5rem] mb-8 transition-all duration-700 glass neon-red";
-                label.innerText = "JSI IMPOSTOR";
-                label.classList.add('text-red-500');
-                wordTxt.innerText = "???";
-                hintTxt.innerText = "ASOCIACE: " + hint;
-            } else {
-                box.className = "p-10 rounded-[2.5rem] mb-8 transition-all duration-700 glass neon-indigo";
-                label.innerText = "JSI CIVILISTA";
-                label.classList.add('text-indigo-400');
-                wordTxt.innerText = word;
-                hintTxt.innerText = "Napovídej opatrně pomocí asociačních slov.";
+            conn.on('data', (data) => {
+                // Přijímáme pozici druhého hráče a ukládáme ji do seznamu
+                players[conn.peer] = data;
+            });
+
+            conn.on('close', () => {
+                document.getElementById('status').innerText = "Stav: Hráč se odpojil";
+                delete players[conn.peer];
+            });
+        }
+
+        // Funkce pro odeslání mé pozice přes síť
+        function sendPosition() {
+            if (conn && conn.open) {
+                conn.send({ x: me.x, y: me.y, color: me.color });
             }
         }
 
-        function serverReveal() {
-            broadcast({type: 'REVEAL', imps: currentImps.join(", "), word: currentWord});
-            alert(`Odhaleno!\nImpostoři: ${currentImps.join(", ")}\nSlovo: ${currentWord}`);
-            location.reload();
+        // --- OVLÁDÁNÍ A POHYB ---
+
+        const keys = {};
+        window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+        window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+        function updateMovement() {
+            const speed = 5;
+            let moved = false;
+
+            if (keys['arrowup'] || keys['w']) { me.y -= speed; moved = true; }
+            if (keys['arrowdown'] || keys['s']) { me.y += speed; moved = true; }
+            if (keys['arrowleft'] || keys['a']) { me.x -= speed; moved = true; }
+            if (keys['arrowright'] || keys['d']) { me.x += speed; moved = true; }
+
+            // Pokud jsem se pohnul, pošlu novou pozici kamarádovi
+            if (moved) sendPosition();
         }
 
-        function copyId() {
-            navigator.clipboard.writeText(myId);
-            alert("ID zkopírováno!");
+        // --- RENDERING (KRESLENÍ) ---
+
+        function draw() {
+            // Vyčistit herní plochu
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Vykreslit mřížku pro lepší orientaci
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            for(let i=0; i<canvas.width; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+            for(let i=0; i<canvas.height; i+=50) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
+
+            // Vykreslit všechny hráče v seznamu
+            for (let id in players) {
+                const p = players[id];
+                
+                // Tělo postavičky
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // "Batoh" nebo stín pod hráčem
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(p.x - 15, p.y + 15, 30, 5);
+
+                // Text nad hlavou
+                ctx.fillStyle = id === myId ? '#fbbf24' : 'white';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(id === myId ? "TY (Impostor)" : "HRÁČ", p.x, p.y - 30);
+            }
+
+            updateMovement();
+            requestAnimationFrame(draw);
         }
+
+        // Spuštění hry
+        draw();
+
+        // Ošetření chyb PeerJS
+        peer.on('error', (err) => {
+            console.error('PeerJS Chyba:', err.type);
+            document.getElementById('status').innerText = "Chyba: " + err.type;
+            if(err.type === 'peer-運-not-found') alert('Místnost s tímto ID neexistuje.');
+        });
     </script>
 </body>
 </html>
