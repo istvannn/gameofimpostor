@@ -3,149 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IMPOSTOR - Final Fix</title>
+    <title>IMPOSTOR - Final Stable</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-        body, html { margin: 0; padding: 0; background: #0d0d12; color: #fff; font-family: 'Orbitron', sans-serif; height: 100%; overflow: hidden; }
-        #menu-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #16161e; padding: 40px; border-radius: 32px; width: 380px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.8); border: 1px solid #252533; z-index: 100; }
-        h1 { font-weight: 900; font-size: 2.8rem; color: #9d66ff; margin: 0; }
-        input { background: #1f1f29; border: none; border-radius: 16px; padding: 18px; width: 100%; color: white; font-family: 'Orbitron'; font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; text-align: center; outline: none; }
-        .btn { border: none; border-radius: 16px; padding: 18px; width: 100%; cursor: pointer; text-transform: uppercase; font-family: 'Orbitron'; font-weight: 700; margin-bottom: 15px; }
-        .btn-create { background: linear-gradient(90deg, #7c3aed, #6366f1); color: white; }
-        .btn-join { background: #252533; color: #a1a1aa; }
-        #debug-log { font-size: 0.6rem; color: #565666; margin-top: 10px; text-align: left; background: #000; padding: 5px; border-radius: 5px; height: 50px; overflow-y: auto; }
-        #gameCanvas { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-        #role-tag { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; display: none; z-index: 50; }
+        body, html { margin: 0; padding: 0; background: #0a0a0f; color: #fff; font-family: 'Orbitron', sans-serif; height: 100%; overflow: hidden; }
+        #menu-screen { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #111118; padding: 40px; border-radius: 25px; width: 350px; text-align: center; border: 2px solid #2d2d3d; z-index: 100; box-shadow: 0 0 50px rgba(0,0,0,0.9); }
+        h1 { font-weight: 900; color: #9d66ff; margin: 0 0 20px 0; font-size: 2.2rem; }
+        input { background: #1a1a24; border: 1px solid #333; border-radius: 12px; padding: 15px; width: 100%; color: white; font-family: 'Orbitron'; margin-bottom: 10px; box-sizing: border-box; text-align: center; }
+        .btn { border: none; border-radius: 12px; padding: 15px; width: 100%; cursor: pointer; text-transform: uppercase; font-family: 'Orbitron'; font-weight: 700; margin-bottom: 10px; transition: 0.3s; }
+        .btn-host { background: #7c3aed; color: white; }
+        .btn-join { background: #2d2d3d; color: #bbb; }
+        .btn-start { background: #22c55e; color: white; display: none; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        #log { font-size: 0.7rem; color: #666; background: #000; padding: 10px; border-radius: 8px; text-align: left; height: 80px; overflow-y: auto; margin-top: 10px; border: 1px solid #222; }
+        #gameCanvas { display: none; background: #050508; width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
 
     <div id="menu-screen">
         <h1>IMPOSTOR</h1>
-        <input type="text" id="nickInput" placeholder="Přezdívka" value="Hráč">
-        <button class="btn btn-create" onclick="hostGame()">Vytvořit (Host)</button>
-        <input type="text" id="roomIdInput" placeholder="ID místnosti">
-        <button class="btn btn-join" onclick="joinGame()">Připojit se</button>
-        <div id="debug-log">Status: Čekání na inicializaci...</div>
-        <button id="startBtn" class="btn" style="background: #22c55e; display: none;" onclick="startGameHost()">START HRY</button>
+        <input type="text" id="nickInput" placeholder="Zadej jméno" value="Hráč">
+        
+        <button class="btn btn-host" onclick="setupHost()">VYTVOŘIT MÍSTNOST</button>
+        
+        <div style="font-size: 0.6rem; color: #444; margin: 5px;">ID TVOJI MÍSTNOSTI (POŠLI KÁMOŠI):</div>
+        <input type="text" id="myIdDisplay" readonly placeholder="Generování ID..." onclick="copyId()">
+        
+        <div style="border-top: 1px solid #222; margin: 15px 0;"></div>
+        
+        <input type="text" id="joinIdInput" placeholder="Vlož ID kámoše">
+        <button class="btn btn-join" onclick="joinLobby()">PŘIPOJIT SE</button>
+        
+        <div id="log">Status: Čekání na server...</div>
+        <button id="startBtn" class="btn btn-start" onclick="hostStartGame()">START HRY</button>
     </div>
 
-    <div id="role-tag"></div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        const log = (msg) => { document.getElementById('debug-log').innerText += "\n> " + msg; };
         const peer = new Peer(undefined, {
             debug: 2,
             config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}
         });
 
-        let connections = {};
+        let myId, conn;
+        let connections = [];
         let players = {};
-        let myId, isHost = false;
-        const me = { x: 400, y: 300, nick: "Hráč", role: "CREWMATE" };
+        const me = { x: Math.random()*500, y: Math.random()*500, nick: "Hráč", role: "CREWMATE" };
 
-        peer.on('open', id => { myId = id; log("Server připraven. ID: " + id); });
-        peer.on('error', err => log("Chyba: " + err.type));
+        const logger = (msg) => {
+            const l = document.getElementById('log');
+            l.innerHTML += `<div>> ${msg}</div>`;
+            l.scrollTop = l.scrollHeight;
+        };
 
-        function hostGame() {
-            isHost = true;
-            me.nick = document.getElementById('nickInput').value;
-            document.getElementById('roomIdInput').value = myId;
-            document.getElementById('startBtn').style.display = 'block';
-            log("Místnost vytvořena. Pošli ID kámošovi.");
-        }
-
-        function joinGame() {
-            const targetId = document.getElementById('roomIdInput').value.trim();
-            me.nick = document.getElementById('nickInput').value;
-            log("Zkouším se spojit s: " + targetId);
-            const conn = peer.connect(targetId, { reliable: true });
-            setupConnection(conn);
-        }
-
-        peer.on('connection', conn => {
-            log("Někdo se připojuje...");
-            setupConnection(conn);
+        peer.on('open', id => {
+            myId = id;
+            document.getElementById('myIdDisplay').value = id;
+            logger("Server OK. Připraven k hostování.");
         });
 
-        function setupConnection(conn) {
-            connections[conn.peer] = conn;
-            conn.on('open', () => {
-                log("SPOJENO s " + conn.peer);
-                // Posílej data
+        peer.on('error', err => {
+            if(err.type === 'peer-unavailable') logger("CHYBA: Místnost neexistuje!");
+            else logger("CHYBA: " + err.type);
+        });
+
+        function copyId() {
+            const copyText = document.getElementById("myIdDisplay");
+            copyText.select();
+            navigator.clipboard.writeText(copyText.value);
+            alert("ID zkopírováno! Pošli ho kámošovi.");
+        }
+
+        function setupHost() {
+            me.nick = document.getElementById('nickInput').value;
+            logger("Čekám na kámoše... (připojte se na ID výše)");
+        }
+
+        function joinLobby() {
+            const targetId = document.getElementById('joinIdInput').value.trim();
+            if(!targetId) return alert("Vlož ID!");
+            me.nick = document.getElementById('nickInput').value;
+            logger("Zkouším se spojit...");
+            const c = peer.connect(targetId, { reliable: true });
+            handleConn(c);
+        }
+
+        peer.on('connection', c => {
+            logger("Kámoš nalezen! Připojuji ho...");
+            handleConn(c);
+            document.getElementById('startBtn').style.display = 'block';
+        });
+
+        function handleConn(c) {
+            conn = c;
+            connections.push(c);
+            c.on('open', () => {
+                logger("SPOJENO! Můžete hrát.");
                 setInterval(() => {
-                    if(conn.open) conn.send({ type: 'move', x: me.x, y: me.y, nick: me.nick });
+                    if(c.open) c.send({ type: 'pos', x: me.x, y: me.y, nick: me.nick });
                 }, 50);
             });
-
-            conn.on('data', data => {
-                if(data.type === 'move') {
-                    players[conn.peer] = data;
-                }
-                if(data.type === 'start') {
-                    me.role = data.role;
-                    runGame();
-                }
+            c.on('data', data => {
+                if(data.type === 'pos') players[c.peer] = data;
+                if(data.type === 'start') { me.role = data.role; initGame(); }
             });
         }
 
-        function startGameHost() {
-            const ids = Object.keys(connections);
-            const impostorIndex = Math.floor(Math.random() * (ids.length + 1));
-            
-            // Nastav role všem
-            ids.forEach((id, index) => {
-                const role = (index === impostorIndex) ? "IMPOSTOR" : "CREWMATE";
-                connections[id].send({ type: 'start', role: role });
+        function hostStartGame() {
+            const impIdx = Math.floor(Math.random() * (connections.length + 1));
+            connections.forEach((c, i) => {
+                c.send({ type: 'start', role: (i === impIdx ? 'IMPOSTOR' : 'CREWMATE') });
             });
-            
-            me.role = (impostorIndex === ids.length) ? "IMPOSTOR" : "CREWMATE";
-            runGame();
+            me.role = (impIdx === connections.length ? 'IMPOSTOR' : 'CREWMATE');
+            initGame();
         }
 
-        function runGame() {
+        function initGame() {
             document.getElementById('menu-screen').style.display = 'none';
             const canvas = document.getElementById('gameCanvas');
             canvas.style.display = 'block';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
-            
-            const rt = document.getElementById('role-tag');
-            rt.style.display = 'block';
-            rt.innerText = me.role;
-            rt.style.color = me.role === 'IMPOSTOR' ? '#ff4444' : '#44ff44';
-            
-            animate();
+            render();
         }
 
         const keys = {};
         window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
         window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
 
-        function animate() {
+        function render() {
             const ctx = document.getElementById('gameCanvas').getContext('2d');
-            ctx.fillStyle = '#0d0d12';
+            ctx.fillStyle = '#0a0a0f';
             ctx.fillRect(0,0, innerWidth, innerHeight);
 
             if(keys['w']) me.y -= 5; if(keys['s']) me.y += 5;
             if(keys['a']) me.x -= 5; if(keys['d']) me.x += 5;
 
-            // Kresli ostatní
             for(let id in players) {
-                drawP(ctx, players[id].x, players[id].y, "#555", players[id].nick);
+                drawPlayer(ctx, players[id].x, players[id].y, "#555", players[id].nick);
             }
-            // Kresli mě
-            drawP(ctx, me.x, me.y, me.role === 'IMPOSTOR' ? "#ff4444" : "#44ff44", me.nick + " (TY)");
-            
-            requestAnimationFrame(animate);
+            drawPlayer(ctx, me.x, me.y, me.role === 'IMPOSTOR' ? "#ff4444" : "#44ff44", me.nick + " (TY)");
+            requestAnimationFrame(render);
         }
 
-        function drawP(ctx, x, y, color, name) {
-            ctx.fillStyle = color;
+        function drawPlayer(ctx, x, y, col, name) {
+            ctx.fillStyle = col;
             ctx.beginPath(); ctx.roundRect(x-20, y-25, 40, 50, 10); ctx.fill();
-            ctx.fillStyle = "white"; ctx.font = "12px Orbitron"; ctx.textAlign = "center";
+            ctx.fillStyle = "white"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "center";
             ctx.fillText(name, x, y-35);
         }
     </script>
