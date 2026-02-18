@@ -3,124 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IMPOSTOR</title>
+    <title>IMPOSTOR - Ultimate</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
-        body {
-            background-color: #0d0d12;
-            color: #ffffff;
-            font-family: 'Orbitron', sans-serif;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-        }
+        body, html { margin: 0; padding: 0; background-color: #0d0d12; color: #ffffff; font-family: 'Orbitron', sans-serif; height: 100%; overflow: hidden; }
 
-        /* --- DESIGN PODLE TVÉHO OBRÁZKU --- */
+        /* --- MENU DESIGN --- */
         #menu-screen {
-            background: #16161e;
-            padding: 40px;
-            border-radius: 32px;
-            width: 380px;
-            text-align: center;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.8);
-            border: 1px solid #252533;
-            z-index: 100;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #16161e; padding: 40px; border-radius: 32px; width: 380px;
+            text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+            border: 1px solid #252533; z-index: 100;
         }
 
-        h1 {
-            font-weight: 900;
-            font-size: 2.8rem;
-            color: #9d66ff;
-            margin: 0;
-            letter-spacing: 2px;
-        }
-
-        .subtitle {
-            font-size: 0.65rem;
-            color: #565666;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            margin-bottom: 35px;
-            display: block;
-        }
-
+        h1 { font-weight: 900; font-size: 2.8rem; color: #9d66ff; margin: 0; }
+        .subtitle { font-size: 0.65rem; color: #565666; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 35px; display: block; }
+        
         input {
-            background: #1f1f29;
-            border: none;
-            border-radius: 16px;
-            padding: 18px;
-            width: 100%;
-            color: white;
-            font-family: 'Orbitron', sans-serif;
-            font-size: 0.9rem;
-            margin-bottom: 12px;
-            box-sizing: border-box;
-            text-align: center;
+            background: #1f1f29; border: none; border-radius: 16px; padding: 18px;
+            width: 100%; color: white; font-family: 'Orbitron', sans-serif;
+            font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; text-align: center; outline: none;
         }
 
         .btn-create {
-            background: linear-gradient(90deg, #7c3aed, #6366f1);
-            color: white;
-            font-weight: 700;
-            padding: 18px;
-            border-radius: 16px;
-            width: 100%;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            cursor: pointer;
-            border: none;
-            margin-bottom: 25px;
-            box-shadow: 0 10px 20px rgba(124, 58, 237, 0.3);
-            transition: transform 0.2s;
-        }
-
-        .btn-create:active { transform: scale(0.98); }
-
-        .divider {
-            color: #333;
-            font-size: 0.6rem;
-            margin: 15px 0;
-            display: flex;
-            align-items: center;
-        }
-        .divider::before, .divider::after {
-            content: ""; flex: 1; height: 1px; background: #222; margin: 0 15px;
+            background: linear-gradient(90deg, #7c3aed, #6366f1); color: white;
+            font-weight: 700; padding: 18px; border-radius: 16px; width: 100%;
+            cursor: pointer; border: none; margin-bottom: 25px; text-transform: uppercase;
         }
 
         .btn-join {
-            background: #252533;
-            color: #a1a1aa;
-            padding: 18px;
-            border-radius: 16px;
-            width: 100%;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            cursor: pointer;
-            border: none;
+            background: #252533; color: #a1a1aa; padding: 18px; border-radius: 16px;
+            width: 100%; cursor: pointer; border: none; text-transform: uppercase;
         }
 
-        /* --- HERNÍ PLOCHA --- */
-        #gameCanvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none;
-            background: #0a0a0f;
-        }
+        .divider { color: #333; font-size: 0.6rem; margin: 15px 0; display: flex; align-items: center; }
+        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #222; margin: 0 15px; }
 
-        #status-msg {
-            position: absolute;
-            bottom: 20px;
-            font-size: 0.7rem;
-            color: #444;
+        /* --- GAME UI --- */
+        #game-ui {
+            position: absolute; top: 20px; right: 20px; text-align: right; pointer-events: none;
         }
+        .role-tag { font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
+        .impostor { color: #ff4444; text-shadow: 0 0 10px #ff0000; }
+        .crewmate { color: #44ff44; text-shadow: 0 0 10px #00ff00; }
+
+        #gameCanvas { display: none; background: #0a0a0f; }
     </style>
 </head>
 <body>
@@ -131,123 +60,133 @@
 
         <input type="text" id="nickInput" placeholder="přezdívka" value="panco">
         
-        <button class="btn-create" onclick="hostGame()">
-            Vytvořit novou místnost
-        </button>
+        <button class="btn-create" onclick="hostGame()">Vytvořit novou místnost</button>
 
         <div class="divider">NEBO</div>
 
         <input type="text" id="roomIdInput" placeholder="Vlož ID místnosti">
+        <button class="btn-join" onclick="joinGame()">Připojit se ke kámošům</button>
         
-        <button class="btn-join" onclick="joinGame()">
-            Připojit se ke kámošům
-        </button>
-        
-        <p id="status-msg text-gray-700">Server: Připojování...</p>
+        <p id="status-msg" style="color: #444; font-size: 0.7rem; margin-top: 15px;">Server: Čekání...</p>
+    </div>
+
+    <div id="game-ui">
+        <div id="role-display" class="role-tag"></div>
+        <div id="player-list" style="font-size: 0.8rem; color: #aaa;"></div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // SÍŤOVÝ FIX PRO VERCEL
-        const peer = new Peer(undefined, {
-            host: '0.peerjs.com',
-            port: 443,
-            secure: true
-        });
-
+        // --- PEERJS KONFIGURACE ---
+        const peer = new Peer(undefined, { host: '0.peerjs.com', port: 443, secure: true });
         let conn;
         let players = {};
         let myId;
+        let myRole = Math.random() > 0.5 ? "IMPOSTOR" : "CREWMATE";
+
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
+        const me = { x: Math.random() * 500 + 100, y: Math.random() * 500 + 100, nick: "panco", role: myRole };
 
         peer.on('open', (id) => {
             myId = id;
-            document.querySelector('#status-msg').innerText = "Server: Online";
+            document.getElementById('status-msg').innerText = "Server: Připraven.";
         });
 
         function hostGame() {
             if (!myId) return;
-            // Zobrazíme ID v inputu, aby ho hráč mohl zkopírovat
             const input = document.getElementById('roomIdInput');
             input.value = myId;
             input.select();
-            alert("Tvoje ID bylo vloženo do pole níže. Pošli ho kámošovi!");
-            
-            // Počkáme na připojení nebo můžeme rovnou do hry
-            startRendering();
+            document.getElementById('status-msg').innerText = "ID vytvořeno. Pošli ho kámošovi!";
+            me.nick = document.getElementById('nickInput').value;
+            showGame();
         }
 
         function joinGame() {
-            const targetId = document.getElementById('roomIdInput').value;
-            if (!targetId) return alert("Musíš vložit ID!");
-            
+            const targetId = document.getElementById('roomIdInput').value.trim();
+            if (!targetId) return;
+            me.nick = document.getElementById('nickInput').value;
             conn = peer.connect(targetId);
-            setupConnection();
-            startRendering();
-        }
-
-        function setupConnection() {
-            conn.on('open', () => {
-                sendData();
-            });
-            conn.on('data', (data) => {
-                players[conn.peer] = data;
-            });
+            setupConnection(conn);
+            showGame();
         }
 
         peer.on('connection', (c) => {
             conn = c;
-            setupConnection();
-            startRendering();
+            setupConnection(conn);
+            showGame();
         });
 
-        // HRA
-        const player = { x: window.innerWidth/2, y: window.innerHeight/2, color: '#ff4444' };
+        function setupConnection(c) {
+            c.on('open', () => {
+                document.getElementById('menu-screen').style.display = 'none';
+                setInterval(() => { if(c.open) c.send(me); }, 50);
+            });
+            c.on('data', (data) => { players[c.peer] = data; });
+        }
 
-        function startRendering() {
-            document.getElementById('menu-screen').style.display = 'none';
+        function showGame() {
             canvas.style.display = 'block';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            document.getElementById('role-display').innerText = me.role;
+            document.getElementById('role-display').className = "role-tag " + me.role.toLowerCase();
             animate();
         }
 
-        function sendData() {
-            if (conn && conn.open) {
-                conn.send({ x: player.x, y: player.y });
-            }
-        }
-
-        window.addEventListener('keydown', (e) => {
-            const s = 10;
-            if (e.key === 'w') player.y -= s;
-            if (e.key === 's') player.y += s;
-            if (e.key === 'a') player.x -= s;
-            if (e.key === 'd') player.x += s;
-            sendData();
+        // --- OVLÁDÁNÍ ---
+        const keys = {};
+        window.addEventListener('keydown', (e) => { 
+            keys[e.key.toLowerCase()] = true; 
+            if(['w','a','s','d'].includes(e.key.toLowerCase())) document.getElementById('menu-screen').style.display = 'none';
         });
+        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+        function move() {
+            const s = 6;
+            if (keys['w']) me.y -= s;
+            if (keys['s']) me.y += s;
+            if (keys['a']) me.x -= s;
+            if (keys['d']) me.x += s;
+        }
 
         function animate() {
-            ctx.fillStyle = '#0a0a0f';
+            ctx.fillStyle = '#0d0d12';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Já
-            ctx.fillStyle = player.color;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, 20, 0, Math.PI*2);
-            ctx.fill();
+            move();
 
-            // Ostatní
+            // Vykreslit ostatní hráče
             for (let id in players) {
-                ctx.fillStyle = '#7c3aed';
-                ctx.beginPath();
-                ctx.arc(players[id].x, players[id].y, 20, 0, Math.PI*2);
-                ctx.fill();
+                const p = players[id];
+                drawPlayer(p.x, p.y, p.role === "IMPOSTOR" ? "#ff4444" : "#44ff44", p.nick);
             }
+
+            // Vykreslit sebe
+            drawPlayer(me.x, me.y, me.role === "IMPOSTOR" ? "#ff4444" : "#44ff44", me.nick + " (TY)");
+
             requestAnimationFrame(animate);
         }
+
+        function drawPlayer(x, y, color, name) {
+            // Postavička
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.roundRect(x - 20, y - 25, 40, 50, 10);
+            ctx.fill();
+            // Sklo helmy
+            ctx.fillStyle = "#aaddff";
+            ctx.fillRect(x - 5, y - 15, 20, 15);
+            // Jméno
+            ctx.fillStyle = "white";
+            ctx.font = "12px Orbitron";
+            ctx.textAlign = "center";
+            ctx.fillText(name, x, y - 35);
+        }
+
+        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
     </script>
 </body>
 </html>
