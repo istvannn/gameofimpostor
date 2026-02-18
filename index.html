@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IMPOSTOR - Multiplayer</title>
+    <title>IMPOSTOR - Fixed Multiplayer</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         body, html { margin: 0; padding: 0; background-color: #0d0d12; color: #ffffff; font-family: 'Orbitron', sans-serif; height: 100%; overflow: hidden; }
 
-        /* MENU DESIGN */
         #menu-screen {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: #16161e; padding: 40px; border-radius: 32px; width: 380px;
@@ -21,20 +20,14 @@
         
         input { background: #1f1f29; border: none; border-radius: 16px; padding: 18px; width: 100%; color: white; font-family: 'Orbitron'; font-size: 0.9rem; margin-bottom: 12px; box-sizing: border-box; text-align: center; outline: none; }
         
-        .btn { border: none; border-radius: 16px; padding: 18px; width: 100%; cursor: pointer; text-transform: uppercase; font-family: 'Orbitron'; font-weight: 700; margin-bottom: 15px; transition: 0.3s; }
+        .btn { border: none; border-radius: 16px; padding: 18px; width: 100%; cursor: pointer; text-transform: uppercase; font-family: 'Orbitron'; font-weight: 700; margin-bottom: 15px; }
         .btn-create { background: linear-gradient(90deg, #7c3aed, #6366f1); color: white; }
         .btn-join { background: #252533; color: #a1a1aa; }
         .btn-start { background: #22c55e; color: white; display: none; margin-top: 20px; }
         
-        .divider { color: #333; font-size: 0.6rem; margin: 15px 0; display: flex; align-items: center; }
-        .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: #222; margin: 0 15px; }
-
-        #player-list { margin-top: 20px; font-size: 0.8rem; color: #9d66ff; text-align: left; }
-        
-        /* GAME UI */
-        #game-ui { position: absolute; top: 20px; right: 20px; z-index: 50; display: none; }
-        .role-tag { font-size: 1.2rem; font-weight: bold; text-transform: uppercase; }
+        #player-list { margin-top: 20px; font-size: 0.8rem; color: #9d66ff; text-align: left; background: #1f1f29; padding: 10px; border-radius: 10px; display: none; }
         #gameCanvas { display: none; background: #0a0a0f; position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #role-display { position: absolute; top: 20px; right: 20px; font-size: 1.5rem; font-weight: bold; z-index: 50; }
     </style>
 </head>
 <body>
@@ -43,146 +36,28 @@
         <h1>IMPOSTOR</h1>
         <span class="subtitle">Multiplayer Edition</span>
         
-        <div id="lobby-setup">
-            <input type="text" id="nickInput" placeholder="Tvoje přezdívka">
-            <button class="btn btn-create" onclick="hostGame()">Vytvořit místnost</button>
-            <div class="divider">NEBO</div>
-            <input type="text" id="roomIdInput" placeholder="Vlož ID místnosti">
-            <button class="btn btn-join" onclick="joinGame()">Připojit se</button>
-        </div>
+        <input type="text" id="nickInput" placeholder="Tvoje přezdívka" value="Hráč">
+        <button id="hostBtn" class="btn btn-create" onclick="hostGame()">Vytvořit místnost</button>
+        <div style="margin: 10px 0; font-size: 0.7rem; color: #444;">NEBO</div>
+        <input type="text" id="roomIdInput" placeholder="ID místnosti">
+        <button id="joinBtn" class="btn btn-join" onclick="joinGame()">Připojit se</button>
 
         <div id="player-list"></div>
         <button id="startBtn" class="btn btn-start" onclick="broadcastStart()">START HRY</button>
-        <p id="status-msg" style="color: #444; font-size: 0.7rem; margin-top: 15px;">Server: Čekání...</p>
+        <p id="status-msg" style="color: #666; font-size: 0.7rem; margin-top: 15px;">Status: Čekání...</p>
     </div>
 
-    <div id="game-ui"><div id="role-display" class="role-tag"></div></div>
+    <div id="role-display"></div>
     <canvas id="gameCanvas"></canvas>
 
     <script>
         const peer = new Peer(undefined, { host: '0.peerjs.com', port: 443, secure: true });
-        let connections = [];
+        let conns = {}; // Ukládáme všechna spojení podle ID
         let players = {};
-        let myId, conn;
+        let myId;
         let isHost = false;
-        let gameStarted = false;
 
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const me = { x: 400, y: 300, nick: "", role: "" };
-
-        peer.on('open', (id) => { 
-            myId = id; 
-            document.getElementById('status-msg').innerText = "Server: Online";
-        });
-
-        function hostGame() {
-            const nick = document.getElementById('nickInput').value.trim();
-            if (!nick) return alert("Zadej přezdívku!");
-            isHost = true;
-            me.nick = nick;
-            document.getElementById('roomIdInput').value = myId;
-            document.getElementById('startBtn').style.display = 'block';
-            document.getElementById('status-msg').innerText = "Kód vytvořen. Čekej na kámoše.";
-            updatePlayerList();
-        }
-
-        function joinGame() {
-            const nick = document.getElementById('nickInput').value.trim();
-            const targetId = document.getElementById('roomIdInput').value.trim();
-            if (!nick || !targetId) return alert("Zadej jméno a ID!");
-            me.nick = nick;
-            conn = peer.connect(targetId);
-            setupConnection(conn);
-        }
-
-        peer.on('connection', (incoming) => {
-            connections.push(incoming);
-            setupConnection(incoming);
-        });
-
-        function setupConnection(c) {
-            c.on('open', () => {
-                document.getElementById('status-msg').innerText = "Připojeno!";
-                // Posílej pravidelně data
-                setInterval(() => {
-                    if (c.open) c.send({ type: 'sync', nick: me.nick, x: me.x, y: me.y, role: me.role });
-                }, 50);
-            });
-
-            c.on('data', (data) => {
-                if (data.type === 'sync') {
-                    players[c.peer] = data;
-                    updatePlayerList();
-                } else if (data.type === 'start') {
-                    me.role = data.roles[myId] || "CREWMATE";
-                    startGame();
-                }
-            });
-        }
-
-        function updatePlayerList() {
-            const list = document.getElementById('player-list');
-            let html = `<strong>Hráči v lobby:</strong><br>• ${me.nick} (TY)<br>`;
-            for (let id in players) {
-                html += `• ${players[id].nick}<br>`;
-            }
-            list.innerHTML = html;
-        }
-
-        function broadcastStart() {
-            if (!isHost) return;
-            const roles = {};
-            const allIds = [myId, ...connections.map(c => c.peer)];
-            const impId = allIds[Math.floor(Math.random() * allIds.length)];
-            
-            allIds.forEach(id => roles[id] = (id === impId ? "IMPOSTOR" : "CREWMATE"));
-            
-            me.role = roles[myId];
-            connections.forEach(c => c.send({ type: 'start', roles: roles }));
-            startGame();
-        }
-
-        function startGame() {
-            gameStarted = true;
-            document.getElementById('menu-screen').style.display = 'none';
-            document.getElementById('game-ui').style.display = 'block';
-            document.getElementById('role-display').innerText = me.role;
-            document.getElementById('role-display').style.color = me.role === "IMPOSTOR" ? "#ff4444" : "#44ff44";
-            canvas.style.display = 'block';
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
-            animate();
-        }
-
-        const keys = {};
-        window.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
-        window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
-
-        function animate() {
-            if (!gameStarted) return;
-            ctx.fillStyle = '#0d0d12';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            const s = 5;
-            if (keys['w']) me.y -= s; if (keys['s']) me.y += s;
-            if (keys['a']) me.x -= s; if (keys['d']) me.x += s;
-
-            for (let id in players) {
-                const p = players[id];
-                drawPlayer(p.x, p.y, p.role === "IMPOSTOR" ? "#ff4444" : "#44ff44", p.nick);
-            }
-            drawPlayer(me.x, me.y, me.role === "IMPOSTOR" ? "#ff4444" : "#44ff44", me.nick + " (TY)");
-            requestAnimationFrame(animate);
-        }
-
-        function drawPlayer(x, y, color, name) {
-            ctx.fillStyle = color;
-            ctx.beginPath(); ctx.roundRect(x - 20, y - 25, 40, 50, 10); ctx.fill();
-            ctx.fillStyle = "#aaddff"; ctx.fillRect(x - 5, y - 15, 20, 15);
-            ctx.fillStyle = "white"; ctx.font = "12px Orbitron"; ctx.textAlign = "center";
-            ctx.fillText(name, x, y - 35);
-        }
-    </script>
-</body>
-</html>
+        const me = { x: Math.random()*400+
+        
